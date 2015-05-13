@@ -4,62 +4,53 @@
 -- Date: 10.05.2015 - Time: 06:36
 -- pewx.de // iGaming-mta.de // iRace-mta.de // iSurvival.de // mtasa.de
 --
-CMCManager = inherit(CMapConverter)
+CMCManager = {}
 
 function CMCManager:constructor()
-    self.mapTypes = {"DM", "DD", "Hunter", "Shooter"}
-    self.states = {}
-    addCommandHandler("cm", bind(CMCManager.initialiseMap, self))
+    --self.mapTypes = {"DM", "DD", "Hunter", "Shooter"}
+    --self.states = {}
+    --addCommandHandler("cm", bind(CMCManager.initialiseMap, self))
+    addEvent("onClientAddMap", true)
+    addEvent("onClientStartConvert", true)
+
+    addEventHandler("onClientAddMap", resourceRoot, bind(CMCManager.clientAddMap, self))
+    addEventHandler("onClientStartConvert", resourceRoot, bind(CMCManager.clientStartConvert, self))
 end
 
 function CMCManager:destructor()
 
 end
 
-function CMCManager:reset()
-    --reset values to default; but i think tht is not rly needed :P
+function CMCManager:clientAddMap(sMapResourceName)
+    if not self[client] then self[client] = {} end
+
+    if not self:isAlreadyAdded(sMapResourceName) then
+        table.insert(self[client], new(CMapConverter, sMapResourceName, client))
+    end
+
+    self:syncToClient()
 end
 
-function CMCManager:initialiseMap(_, _, sMapResource)
-    self:setState("Initialse map")
-    self.mapResource = Resource.getFromName(sMapResource)
-
-    if not self.mapResource then
-        self:setState("Error: Can't find Resource!")
-        --self:reset()
-        return
+function CMCManager:isAlreadyAdded(sMapResourceName)
+    for _, conInstance in ipairs(self[client]) do
+       if conInstance.ResourceName == sMapResourceName then
+           return true
+       end
     end
+    return false
+end
 
-    self:setState("Checking Resource Infos")
-    if self.mapResource:getInfo("type") ~= "map" then
-        self:setState("Error: Resource type is not a map!")
-        return
+function CMCManager:clientStartConvert()
+    for _, conInstance in ipairs(self[client]) do
+       conInstance:startConvert()
     end
+end
 
-    if self.mapResource:getInfo("gamemodes") ~= "race" then
-        self:setState("Error: Resource is not a Race Map!")
-        return
-    end
+function CMCManager:syncToClient()
+   triggerClientEvent(client, "onServerAddedMap", client, self[client][#self[client]])  --Send the last instance "table".. hope that works o:
+end
 
-    self.ResourceName = sMapResource
-    self.mapName = self.mapResource:getInfo("name")
-    self.mapType = self:getMapType()
-    self.mapAuthor = self.mapResource:getInfo("author")
-
-    if not self.mapName then
-        self.setState("Error: Can't get Mapname!")
-        return
-    end
-
-    if not self.mapType then
-        self:setState(("Error: Invalid or no race Map type set (Available: %s)"):format(table.concat(self.mapTypes, ", ")))
-        return
-    end
-
-    if not self.mapAuthor then
-        self.setState("Warning: No map author set!")
-    end
-
+--[[function CMCManager:initialiseMap(_, _, sMapResource)
     self:setState("Extract meta.xml")
     if not self:extractMeta() then return end
 
@@ -71,10 +62,4 @@ function CMCManager:initialiseMap(_, _, sMapResource)
 
     self:setState("Map successfully converted")
     refreshResources()
-end
-
-function CMCManager:setState(sText)
-    debugOutput(tostring(sText))
-    table.insert(self.states, sText)
-    --ToDo: Sync with client, if a gui is available
-end
+end]]

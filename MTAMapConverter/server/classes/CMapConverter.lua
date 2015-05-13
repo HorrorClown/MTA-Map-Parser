@@ -7,12 +7,76 @@
 
 CMapConverter = {}
 
-function CMapConverter:constructor()
+function CMapConverter:constructor(sResourceName, client)
+    self.ResourceName = sResourceName
+    self.ConvertedBy = client
 
+    self.mapTypes = {"DM", "DD", "Hunter", "Shooter" }
+    self.log = {}           --ToDo: Split log and State
+
+    self.initialised = false
+    self:initialiseMap()
 end
 
 function CMapConverter:destructor()
 
+end
+
+function CMapConverter:initialise()
+    self.setState("Initalising map")
+
+    self.mapResource = Resource.getFromName(sMapResource)
+
+    if not self.mapResource then
+        self:setState("Error", "Can't find resource")
+        return false
+    end
+
+    if self.mapResource:getInfo("type") ~= "map" then
+        self:setState("Error", "Resource type is not a map")
+        return false
+    end
+
+    if self.mapResource:getInfo("gamemodes") ~= "race" then
+        self:setState("Error", "Resource is not a race map!")
+        return false
+    end
+
+    self.mapName = self.mapResource:getInfo("name")
+    self.mapType = self:getMapType()
+    self.mapAuthor = self.mapResource:getInfo("author")
+
+    if not self.mapName then
+        self.setState("Error", "Can't get map name")
+        return false
+    end
+
+    if not self.mapAuthor then
+        self.setState("Error", "Can't get map author")
+        return false
+    end
+
+    if not self.mapType then
+        self:setState("Error", "Invalid or no race map type is available in map name")
+        return false
+    end
+
+    --Set initialised to true, if the map was successfully initialised (available to extract meta)
+    self.initialised = true
+end
+
+function CMapConverter:startConvert()
+    if self.initialised then
+
+        if not self:extractMeta() then return end
+
+        if not self:validateFiles() then return end
+
+        if not self:convertMap() then return end
+
+        self:setState("Map successfully converted")
+        refreshResources()
+    end
 end
 
 function CMapConverter:getMapType()
@@ -235,6 +299,10 @@ function CMapConverter:convertMap()
     self:setState("Delete old resource")
     self.mapResource:delete()
     return true
+end
+
+function CMapConverter:setState(sState, sInfo)
+    table.insert(self.log, {state = sState, info = sInfo})
 end
 
 function CMapConverter:addSecurityFile()
