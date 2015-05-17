@@ -19,16 +19,18 @@ function CMapConverter:constructor(sResourceName, client)
 end
 
 function CMapConverter:destructor()
-
+    for _, v in pairs(self) do
+        v = nil
+    end
 end
 
-function CMapConverter:initialise()
-    self.setState("Initalising map")
+function CMapConverter:initialiseMap()
+    self:setState("Initalising map")
 
-    self.mapResource = Resource.getFromName(sMapResource)
+    self.mapResource = Resource.getFromName(self.ResourceName)
 
     if not self.mapResource then
-        self:setState("Error", "Can't find resource")
+        self:setState("Can't find resource")
         return false
     end
 
@@ -47,12 +49,12 @@ function CMapConverter:initialise()
     self.mapAuthor = self.mapResource:getInfo("author")
 
     if not self.mapName then
-        self.setState("Error", "Can't get map name")
+        self:setState("Error", "Can't get map name")
         return false
     end
 
     if not self.mapAuthor then
-        self.setState("Error", "Can't get map author")
+        self:setState("Error", "Can't get map author")
         return false
     end
 
@@ -62,6 +64,7 @@ function CMapConverter:initialise()
     end
 
     --Set initialised to true, if the map was successfully initialised (available to extract meta)
+    self:setState("Initialised", "Successfully initialised!")
     self.initialised = true
 end
 
@@ -80,6 +83,8 @@ function CMapConverter:startConvert()
 end
 
 function CMapConverter:getMapType()
+    if not self.mapName then return false end
+
     for _, mapType in ipairs(self.mapTypes) do
         if self.mapName:find(("\[%s\]"):format(mapType), 1, true) then
             return mapType
@@ -302,7 +307,8 @@ function CMapConverter:convertMap()
 end
 
 function CMapConverter:setState(sState, sInfo)
-    table.insert(self.log, {state = sState, info = sInfo})
+    outputServerLog(("%s: %s"):format(tostring(sState), tostring(sInfo)))
+    --table.insert(self.log, {state = sState, info = sInfo})
 end
 
 function CMapConverter:addSecurityFile()
@@ -322,7 +328,7 @@ if SERVER then
     function getAccountData() return false end
 end
 function setElementData() return false end
-function getElementData() return false end
+--function getElementData() return false end
 function outputChatBox() return false end
 
 --Disable 'm' bind

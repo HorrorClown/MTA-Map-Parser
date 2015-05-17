@@ -11,6 +11,7 @@ function CCore:constructor()
 
     --Manager Table: {"ManagerName", {arguments}}
     table.insert(self.managers, {"CMCManager", {}})
+    table.insert(self.managers, {"CResourceManager", {}})
 end
 
 function CCore:destructor()

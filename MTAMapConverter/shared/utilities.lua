@@ -38,11 +38,19 @@ function utils.convert(sText)
     return newString
 end
 
-
 function utils.getFileExtansion(sFilePath)
     local s = sFilePath:find("/") and sFilePath:find("/") + 1 or 1
     local e = sFilePath:find(".", s, true) + 1
     return sFilePath:sub(e, #sFilePath)
+end
+
+function utils.reverseTable(t)
+    local reversedTable = {}
+    local itemCount = #t
+    for k, v in ipairs(t) do
+        reversedTable[itemCount + 1 - k] = v
+    end
+    return reversedTable
 end
 
 function debugOutput(sText, nType, cr, cg, cb)

@@ -11,8 +11,10 @@ function CMCManager:constructor()
     --self.states = {}
     --addCommandHandler("cm", bind(CMCManager.initialiseMap, self))
     addEvent("onClientAddMap", true)
+    addEvent("onClientRemoveMap", true)
     addEvent("onClientStartConvert", true)
 
+    addEventHandler("onClientRemoveMap", resourceRoot, bind(CMCManager.clientRemoveMap, self))
     addEventHandler("onClientAddMap", resourceRoot, bind(CMCManager.clientAddMap, self))
     addEventHandler("onClientStartConvert", resourceRoot, bind(CMCManager.clientStartConvert, self))
 end
@@ -26,9 +28,21 @@ function CMCManager:clientAddMap(sMapResourceName)
 
     if not self:isAlreadyAdded(sMapResourceName) then
         table.insert(self[client], new(CMapConverter, sMapResourceName, client))
+        triggerClientEvent(client, "onServerAddedMap", client, self[client][#self[client]])
     end
+end
 
-    self:syncToClient()
+function CMCManager:clientRemoveMap(sMapResourceName)
+    if not self[client] then return true end
+
+    for i, conInstance in ipairs(self[client]) do
+        if conInstance.ResourceName == sMapResourceName then
+            delete(conInstance)
+            table.remove(self[client], i)
+            triggerClientEvent(client, "onServerRemovedMap", client, sMapResourceName)
+        end
+    end
+    return false
 end
 
 function CMCManager:isAlreadyAdded(sMapResourceName)
@@ -46,9 +60,9 @@ function CMCManager:clientStartConvert()
     end
 end
 
-function CMCManager:syncToClient()
-   triggerClientEvent(client, "onServerAddedMap", client, self[client][#self[client]])  --Send the last instance "table".. hope that works o:
-end
+--function CMCManager:syncToClient()
+--   triggerClientEvent(client, "onServerAddedMap", client, self[client][#self[client]])  --Send the last instance "table".. hope that works o:
+--end
 
 --[[function CMCManager:initialiseMap(_, _, sMapResource)
     self:setState("Extract meta.xml")

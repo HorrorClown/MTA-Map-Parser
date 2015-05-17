@@ -2,14 +2,17 @@
         <info name = "MTA Map Converter" author = "PewX" type = "script" version = "1.0" />
         <oop>true</oop>
 
-        <!--Server-->
+        <!--Shared-->
         <script src = "shared/classlib.lua" type = "shared" />
         <script src = "shared/utilities.lua" type = "shared" />
 
+        <!--Server-->
         <script src = "server/classes/CMapConverter.lua" type = "server" />
         <script src = "server/managers/CMCManager.lua" type = "server" />
+        <script src = "server/managers/CResourceManager.lua" type = "server" />
         <script src = "server/system/CCore.lua" type = "server" />
 
         <!--Client-->
-        <!--ToDo-->
+        <script src = "client/classes/CClientGui.lua" type = "client" />
+        <script src = "client/system/Core.lua" type = "client" />
 </meta>
