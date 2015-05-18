@@ -44,9 +44,11 @@ function CMapConverter:initialiseMap()
         return false
     end
 
+    self.Converted = self.mapResource:getInfo("pewConverted")
     self.mapName = self.mapResource:getInfo("name")
     self.mapType = self:getMapType()
     self.mapAuthor = self.mapResource:getInfo("author")
+    self.newResourceName = self:getNewResourceName()
 
     if not self.mapName then
         self:setState("Error", "Can't get map name")
@@ -66,6 +68,20 @@ function CMapConverter:initialiseMap()
     --Set initialised to true, if the map was successfully initialised (available to extract meta)
     self:setState("Initialised", "Successfully initialised!")
     self.initialised = true
+end
+
+function CMapConverter:getNewResourceName()
+    if not self.mapType then return "Error" end
+    if not self.mapName then return "Error" end
+
+    local temp = utils.convert(self.mapName):gsub("__", "_") --Convert and replace __ with _
+    local count = #self.mapType + 1
+
+    if temp:byte(count) == 95 then count = count + 1 end
+
+    local split = temp:sub(count, #temp)
+
+    return ("%s_%s"):format(self.mapType:upper(), split:lower())
 end
 
 function CMapConverter:startConvert()
@@ -213,7 +229,6 @@ function CMapConverter:convertMap()
 
     self:setState("Creating new resource")
     --create new resource
-    self.newResourceName = ("%s_%s"):format(self.mapType, utils.convert(self.mapName))
     self.newResource = Resource(self.newResourceName)
 
     self:setState("Create new meta.xml")

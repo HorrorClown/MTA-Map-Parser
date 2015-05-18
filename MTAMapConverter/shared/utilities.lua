@@ -26,6 +26,7 @@ function utils.isSoundFile(sFile)
 end
 
 function utils.convert(sText)
+    if not sText then return false end
     local newString = ""
     local chars = #sText
     for i = 1, chars do
@@ -53,8 +54,22 @@ function utils.reverseTable(t)
     return reversedTable
 end
 
+function utils.liveConverting(sMapName, sMapType)
+    if not sMapType then return "Error" end
+    if not sMapName then return "Error" end
+
+    local temp = utils.convert(sMapName):gsub("__", "_") --Convert and replace __ with _
+    local count = #sMapType + 1
+
+    if temp:byte(count) == 95 then count = count + 1 end
+
+    local split = temp:sub(count, #temp)
+
+    return ("%s_%s"):format(sMapType:upper(), split:lower())
+end
+
 function debugOutput(sText, nType, cr, cg, cb)
     if iDEBUG then
-        outputDebugString(("[%s] %s"):format(SERVER and "Server" or "Client", sText), nType or 3, cr, cg, cb)
+        outputDebugString(("[%s] %s"):format(SERVER and "Server" or "Client", tostring(sText)), nType or 3, cr, cg, cb)
     end
 end

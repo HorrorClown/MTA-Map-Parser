@@ -7,12 +7,13 @@
 CClientGUI = {}
 
 function CClientGUI:constructor()
+    showCursor(true)
     self.maps = {}
 
     self.attachedFunction = {}
     self:createGUI()
+    self.mapTypeIndex = {["DM"] = 0, ["DD"] = 1, ["Shooter"] = 2, ["Hunter"] = 3}
 
-    showCursor(true)
     addEventHandler("onClientGUIClick", resourceRoot, bind(CClientGUI.onClick, self))
 
     addEvent("onServerSendResources", true)
@@ -25,6 +26,8 @@ function CClientGUI:constructor()
 
     bindKey("arrow_d", "down", bind(CClientGUI.arrowKeyPressed, self))
     bindKey("arrow_u", "down", bind(CClientGUI.arrowKeyPressed, self))
+
+    addEventHandler("onClientGUIChanged", self.gui.custom.customMapName, bind(CClientGUI.liveEdit, self))
 end
 
 function CClientGUI:destructor()
@@ -56,19 +59,24 @@ function CClientGUI:serverAddedMap(tbl)
     end
 end
 
-function CClientGUI:serverRemovedMap(ResourceName)
-    --ToDo: Important: Remove Resource from self.maps table!! If not, there will be a bug: Removing a map from converting list, can not be added more..
-
-    local row = guiGridListAddRow(self.gui.mapGridlist)
-    guiGridListSetItemText(self.gui.mapGridlist, row, self.gui.mapColumn, ResourceName, false, false)
+function CClientGUI:serverRemovedMap(tbl)
+    for i, mapTable in ipairs(self.maps) do
+        if mapTable.ResourceName == tbl.ResourceName then
+            table.remove(self.maps, i)
+        end
+    end
 
     local count = guiGridListGetRowCount(self.gui.convertGridlist)-1
     for i = 0, count do
         local itemText = guiGridListGetItemText(self.gui.convertGridlist, i, self.gui.convertColumn)
-        if itemText == ResourceName then
+        if itemText == tbl.ResourceName then
             guiGridListRemoveRow(self.gui.convertGridlist, i)
         end
     end
+
+    local row = guiGridListAddRow(self.gui.mapGridlist)
+    guiGridListSetItemText(self.gui.mapGridlist, row, self.gui.mapColumn, tbl.ResourceName, false, false)
+    guiGridListSetItemText(self.gui.mapGridlist, row, self.gui.mapIsConColumn,  tbl.Converted and "✓" or "✗", false, false)
 end
 
 function CClientGUI:receiveResources(tResources)
@@ -79,6 +87,7 @@ function CClientGUI:receiveResources(tResources)
             if (not tResource.Converted) or self.showConvertedMaps then
                 local row = guiGridListAddRow(self.gui.mapGridlist)
                 guiGridListSetItemText(self.gui.mapGridlist, row, self.gui.mapColumn, tResource.ResourceName, false, false)
+                guiGridListSetItemText(self.gui.mapGridlist, row, self.gui.mapIsConColumn,  tResource.Converted and "✓" or "✗", false, false)
             end
         end
     end
@@ -113,12 +122,49 @@ function CClientGUI:removeMap()
     end
 end
 
+function CClientGUI:applyCustomSettings()
+    local map = self.currentSelected
+    map.useCustom = true
+    map.customMapName = guiGetText(self.gui.custom.customMapName)
+    map.customMapAuthor = guiGetText(self.gui.custom.customMapAuthor)
+    map.customMapType = guiComboBoxGetItemText(self.gui.custom.customMapType, guiComboBoxGetSelected(self.gui.custom.customMapType))
+end
+
 function CClientGUI:toggleConvertedMaps()
     self.showConvertedMaps = guiCheckBoxGetSelected(self.gui.showConvertedMaps)
 end
 
+function CClientGUI:toggleCustomSettings()
+    local state =  guiCheckBoxGetSelected(self.gui.useCustomSettings)
+    for _, eGUI in pairs(self.gui.custom) do
+        guiSetVisible(eGUI, state)
+    end
+end
+
 function CClientGUI:updateMapSettings()
-    --ToDo: Update Settings from self.Maps table
+    local selectedRow = guiGridListGetSelectedItem(self.gui.convertGridlist)
+    local ResourceName = guiGridListGetItemText(self.gui.convertGridlist, selectedRow, 1)
+
+    for _, mapTable in ipairs(self.maps) do
+        if mapTable.ResourceName == ResourceName then
+            self.currentSelected = mapTable
+            guiSetText(self.gui.lbl_ResourceName, tostring(mapTable.ResourceName))
+            guiSetText(self.gui.lbl_MapName, tostring(mapTable.mapName))
+            guiSetText(self.gui.lbl_MapAuthor, tostring(mapTable.mapAuthor))
+            guiSetText(self.gui.lbl_MapType, tostring(mapTable.mapType))
+            guiSetText(self.gui.lbl_NewResourceName, tostring(mapTable.newResourceName))
+            if not mapTable.useCustom then
+                guiSetText(self.gui.custom.customMapName, tostring(mapTable.mapName))
+                guiSetText(self.gui.custom.customMapAuthor, tostring(mapTable.mapAuthor))
+                guiComboBoxSetSelected(self.gui.custom.customMapType, self.mapTypeIndex[mapTable.mapType] or -1)
+            else
+                guiSetText(self.gui.custom.customMapName, tostring(mapTable.customMapName))
+                guiSetText(self.gui.custom.customMapAuthor, tostring(mapTable.customMapAuthor))
+                guiComboBoxSetSelected(self.gui.custom.customMapType, self.mapTypeIndex[mapTable.customMapType] or -1)
+            end
+            self:liveEdit() --Update new resource name
+        end
+    end
 end
 
 function CClientGUI:onClick(sButton, sState)
@@ -133,6 +179,14 @@ function CClientGUI:attach(CGUI, fFunction)
     self.attachedFunction[CGUI] = fFunction
 end
 
+function CClientGUI:liveEdit()
+    if guiCheckBoxGetSelected(self.gui.useCustomSettings) then
+        local type = guiComboBoxGetItemText(self.gui.custom.customMapType, guiComboBoxGetSelected(self.gui.custom.customMapType))
+        local text = guiGetText(self.gui.custom.customMapName)
+        guiSetText(self.gui.lbl_NewResourceName, tostring(utils.liveConverting(text, type)))
+    end
+end
+
 function CClientGUI:createGUI()
     self.gui = {}
     self.gui.window = guiCreateWindow(0, 0, x, y, "PewX' Map Converter", false)
@@ -140,7 +194,8 @@ function CClientGUI:createGUI()
     guiCreateLabel(0.008, 0.03, 1, 1, "Available Map Resources", true, self.gui.window)
     self.gui.mapGridlist = guiCreateGridList(0.008, 0.05, 0.3, 0.865, true, self.gui.window)
     guiGridListSetSelectionMode(self.gui.mapGridlist, 1)
-    self.gui.mapColumn = guiGridListAddColumn(self.gui.mapGridlist, "Map", 1)
+    self.gui.mapColumn = guiGridListAddColumn(self.gui.mapGridlist, "Map", .8)
+    self.gui.mapIsConColumn = guiGridListAddColumn(self.gui.mapGridlist, "Converted", .2)
 
     self.gui.addButton = guiCreateButton(0.31, 0.05, 0.02, 0.9, ">", true, self.gui.window)
     self.gui.remButton = guiCreateButton(0.34, 0.05, 0.02, 0.9, "<", true, self.gui.window)
@@ -150,20 +205,38 @@ function CClientGUI:createGUI()
     self.gui.convertColumn = guiGridListAddColumn(self.gui.convertGridlist, "Map", .8)
     self.gui.initColumn = guiGridListAddColumn(self.gui.convertGridlist, "Initialised", .2)
 
-    guiCreateLabel(0.363, 0.03, 1, .025, "Converting list", true, self.gui.window)
-    guiCreateLabel(0.68, 0.03, 1, .025, "Selected Map Settings", true, self.gui.window)
+    guiCreateLabel(.363, .03, 1, .025, "Converting list", true, self.gui.window)
+    guiCreateLabel(.68, .03, 1, .025, "Selected Map Settings", true, self.gui.window)
 
-    guiCreateLabel(.69, 0.06, 1, 1, "Resource Name:", true, self.gui.window)
-    guiCreateLabel(.69, 0.075, 1, 1, "Map Name:", true, self.gui.window)
-    guiCreateLabel(.69, 0.09, 1, 1, "Map Author:", true, self.gui.window)
-    guiCreateLabel(.69, 0.105, 1, 1, "Map Type:", true, self.gui.window)
-    guiCreateLabel(.69, 0.11, 1, 1, "__________________________________________________________", true, self.gui.window)
-    guiCreateLabel(.69, 0.125, 1, 1, "New Resource Name:", true, self.gui.window)
+    guiCreateLabel(.69, .06, 1, 1, "Resource Name:", true, self.gui.window)
+    guiCreateLabel(.69, .075, 1, 1, "Map Name:", true, self.gui.window)
+    guiCreateLabel(.69, .09, 1, 1, "Map Author:", true, self.gui.window)
+    guiCreateLabel(.69, .105, 1, 1, "Map Type:", true, self.gui.window)
+    guiCreateLabel(.689, .111, 1, 1, ("_"):rep(60), true, self.gui.window)
+    guiCreateLabel(.69, .125, 1, 1, "New Resource Name:", true, self.gui.window)
+
+    self.gui.lbl_ResourceName = guiCreateLabel(.78, .06, 1, 1, "", true, self.gui.window)
+    self.gui.lbl_MapName = guiCreateLabel(.78, .075, 1, 1, "", true, self.gui.window)
+    self.gui.lbl_MapAuthor = guiCreateLabel(.78, .09, 1, 1, "", true, self.gui.window)
+    self.gui.lbl_MapType = guiCreateLabel(.78, .105, 1, 1, "", true, self.gui.window)
+    self.gui.lbl_NewResourceName = guiCreateLabel(.78, .125, 1, 1, "", true, self.gui.window)
 
     self.gui.deleteOldResource = guiCreateCheckBox(.69, .145, .3, .025, "Delete old resource if the map was successfully converted", false, true, self.gui.window)
     self.gui.useCustomSettings = guiCreateCheckBox(.69, .166, .3, .025, "Edit Settings", false, true, self.gui.window)
 
-    --self.gui.customSettings = guiCreateEdit(.71, .19, .18, .025, "", true, self.gui.window)
+    --Custom settings guis
+    self.gui.custom = {}
+    self.gui.custom[1] = guiCreateLabel(.71, .1925, .3, .025, "Map Name:", true, self.gui.window)
+    self.gui.custom[2] = guiCreateLabel(.71, .2225, .3, .025, "Map Author:", true, self.gui.window)
+    self.gui.custom[3] = guiCreateLabel(.71, .2525, .3, .025, "Map Type:", true, self.gui.window)
+
+    self.gui.custom.customMapName = guiCreateEdit(.76, .19, .2, .022, "", true, self.gui.window)
+    self.gui.custom.customMapAuthor = guiCreateEdit(.76, .22, .2, .022, "", true, self.gui.window)
+    self.gui.custom.customMapType = guiCreateComboBox(.76, .25, .2, .092, "Select", true, self.gui.window) --self.gui.custom.customMapType = guiCreateEdit(.78, .22, .2, .022, "", true, self.gui.window)
+    self.gui.custom.apply = guiCreateButton(.86, .28, .1, .022, "Apply", true, self.gui.window)
+    for _, mapType in ipairs({"DM", "DD", "Shooter", "Hunter"}) do guiComboBoxAddItem(self.gui.custom.customMapType, mapType) end
+    for _, eGUI in pairs(self.gui.custom) do guiSetVisible(eGUI, false) end
+    --End custom settings
 
     self.gui.startButton = guiCreateButton(.667, .92, .38, .03, "Start Convert", true, self.gui.window)
 
@@ -176,4 +249,7 @@ function CClientGUI:createGUI()
     self:attach(self.gui.remButton, bind(CClientGUI.removeMap, self))
     self:attach(self.gui.showConvertedMaps, bind(CClientGUI.toggleConvertedMaps, self))
     self:attach(self.gui.convertGridlist, bind(CClientGUI.updateMapSettings, self))
+    self:attach(self.gui.useCustomSettings, bind(CClientGUI.toggleCustomSettings, self))
+    self:attach(self.gui.custom.customMapType, bind(CClientGUI.liveEdit, self))
+    self:attach(self.gui.custom.apply, bind(CClientGUI.applyCustomSettings, self))
 end

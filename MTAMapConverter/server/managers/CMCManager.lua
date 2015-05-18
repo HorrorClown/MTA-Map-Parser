@@ -37,9 +37,9 @@ function CMCManager:clientRemoveMap(sMapResourceName)
 
     for i, conInstance in ipairs(self[client]) do
         if conInstance.ResourceName == sMapResourceName then
+            triggerClientEvent(client, "onServerRemovedMap", client, conInstance)
             delete(conInstance)
             table.remove(self[client], i)
-            triggerClientEvent(client, "onServerRemovedMap", client, sMapResourceName)
         end
     end
     return false
