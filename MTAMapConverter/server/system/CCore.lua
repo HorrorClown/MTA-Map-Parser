@@ -30,10 +30,7 @@ function CCore:loadManagers()
 end
 
 function CCore:initFileSystem()
-    self.fsys = createFilesystemInterface()
-    self.fs = self.fsys.createTranslator("/")
-
-    --ToDo: Check if a NTFS Hard link set for mapmusic (MapConverter Server/server/mapmusic/)
+    --ToDo: Check if a NTFS Hard link set for mapmusic (:MTAMapConverter/mapmusic/)
 end
 
 function CCore:getManager(sName)

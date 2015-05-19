@@ -7,16 +7,15 @@
 CMCManager = {}
 
 function CMCManager:constructor()
-    --self.mapTypes = {"DM", "DD", "Hunter", "Shooter"}
-    --self.states = {}
-    --addCommandHandler("cm", bind(CMCManager.initialiseMap, self))
     addEvent("onClientAddMap", true)
     addEvent("onClientRemoveMap", true)
     addEvent("onClientStartConvert", true)
+    addEvent("onClientApplySettings", true)
 
-    addEventHandler("onClientRemoveMap", resourceRoot, bind(CMCManager.clientRemoveMap, self))
     addEventHandler("onClientAddMap", resourceRoot, bind(CMCManager.clientAddMap, self))
+    addEventHandler("onClientRemoveMap", resourceRoot, bind(CMCManager.clientRemoveMap, self))
     addEventHandler("onClientStartConvert", resourceRoot, bind(CMCManager.clientStartConvert, self))
+    addEventHandler("onClientApplySettings", resourceRoot, bind(CMCManager.clientApplySettings, self))
 end
 
 function CMCManager:destructor()
@@ -55,14 +54,40 @@ function CMCManager:isAlreadyAdded(sMapResourceName)
 end
 
 function CMCManager:clientStartConvert()
+    if not self[client] then triggerClientEvent(client, "onServerConvertingDone", client) return end
+
+    --At first update states
+    for i, conInstance in ipairs(self[client]) do
+        if conInstance.initialised then
+            conInstance:setState("Queued")
+        end
+    end
+
+    --Start converting now
+    for i, conInstance in ipairs(self[client]) do
+        conInstance:startConvert()
+    end
+
+    --Converting ended
+    self[client] = {}
+    triggerClientEvent(client, "onServerConvertingDone", client)
+end
+
+function CMCManager:clientApplySettings(tMapSettings)
     for _, conInstance in ipairs(self[client]) do
-       conInstance:startConvert()
+       if conInstance.ResourceName == tMapSettings.ResourceName then
+            conInstance.useCustom = true
+            conInstance.customMapName = tMapSettings.customMapName
+            conInstance.customMapAuthor = tMapSettings.customMapAuthor
+            conInstance.customMapType = tMapSettings.customMapType
+       end
     end
 end
 
---function CMCManager:syncToClient()
---   triggerClientEvent(client, "onServerAddedMap", client, self[client][#self[client]])  --Send the last instance "table".. hope that works o:
---end
+function CMCManager:sync(CInstance)
+    local toSync = {ResourceName = CInstance.ResourceName, state = CInstance.state, log = CInstance.log }
+    triggerClientEvent(CInstance.ConvertedBy, "onServerSyncConverting", CInstance.ConvertedBy, toSync)
+end
 
 --[[function CMCManager:initialiseMap(_, _, sMapResource)
     self:setState("Extract meta.xml")

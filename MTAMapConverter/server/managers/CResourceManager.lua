@@ -16,12 +16,12 @@ function CResourceManager:destructor()
 
 end
 
-function CResourceManager:clientRefreshResources(bOnlyNew)
+function CResourceManager:clientRefreshResources(bOnlyNew, bRefreshAll)
     if bOnlyNew then
         self.currentResources = getResources()
     end
 
-    refreshResources(true)
+    refreshResources(bRefreshAll)
     self.sendResources = getResources()
 
     if bOnlyNew then

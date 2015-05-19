@@ -16,3 +16,14 @@
         <script src = "client/classes/CClientGui.lua" type = "client" />
         <script src = "client/system/Core.lua" type = "client" />
 </meta>
+
+<!--
+Converting states
+    Initialised
+    Init. Failed
+    Queued
+    Converting
+    Success
+    Converting Failed
+    Converting Skipped
+-->
