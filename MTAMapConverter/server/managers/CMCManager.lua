@@ -66,6 +66,7 @@ function CMCManager:clientStartConvert()
     --Start converting now
     for i, conInstance in ipairs(self[client]) do
         conInstance:startConvert()
+        delete(conInstance)
     end
 
     --Converting ended

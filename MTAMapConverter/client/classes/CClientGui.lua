@@ -31,8 +31,6 @@ function CClientGUI:constructor()
 
     bindKey("arrow_d", "down", bind(CClientGUI.arrowKeyPressed, self))
     bindKey("arrow_u", "down", bind(CClientGUI.arrowKeyPressed, self))
-
-    addEventHandler("onClientGUIChanged", self.gui_main.custom.customMapName, bind(CClientGUI.liveEdit, self))
 end
 
 function CClientGUI:destructor()
@@ -187,7 +185,6 @@ end
 
 function CClientGUI:serverConvertingDone()
     guiSetProperty(self.gui_convert.btn_back, "Disabled", "false")
-    guiSetProperty(self.gui_convert.btn_start, "Disabled", "false")
     self.maps = {}
     guiGridListClear(self.gui_main.convertGridlist)
 
@@ -281,6 +278,8 @@ function CClientGUI:createMainGUI()
     self:attach(self.gui_main.custom.customMapType, bind(CClientGUI.liveEdit, self))
     self:attach(self.gui_main.custom.apply, bind(CClientGUI.applyCustomSettings, self))
     self:attach(self.gui_main.showConvertWindow, bind(CClientGUI.toggleWindow, self))
+
+    addEventHandler("onClientGUIChanged", self.gui_main.custom.customMapName, bind(CClientGUI.liveEdit, self))
 end
 
 --Converting GUI
@@ -293,6 +292,7 @@ function CClientGUI:toggleWindow()
 
     if mainState then
         self:setUpConvertingList()
+        guiSetProperty(self.gui_convert.btn_start, "Disabled", "false")
     end
 end
 
@@ -312,6 +312,8 @@ function CClientGUI:createConvertGUI()
 
     self:attach(self.gui_convert.btn_back, bind(CClientGUI.toggleWindow, self))
     self:attach(self.gui_convert.btn_start, bind(CClientGUI.startConverting, self))
+
+    addEventHandler("onClientGUIDoubleClick", self.gui_convert.gridlist, bind(CClientGUI.createLogWindow, self))
 end
 
 function CClientGUI:setUpConvertingList(tConvertingTable)
@@ -321,7 +323,7 @@ function CClientGUI:setUpConvertingList(tConvertingTable)
         guiGridListSetItemText(self.gui_convert.gridlist, row, self.gui_convert.column_name, (conTable.useCustom and conTable.customMapName or conTable.mapName) or "Error", false, false)
         guiGridListSetItemText(self.gui_convert.gridlist, row, self.gui_convert.column_state, conTable.state, false, false)
         guiGridListSetItemText(self.gui_convert.gridlist, row, self.gui_convert.column_current, conTable.log[#conTable.log] , false, false)
-        guiGridListSetItemData(self.gui_convert.gridlist, row, self.gui_convert.column_name, conTable.ResourceName) --Save ResourceName in name item
+        guiGridListSetItemData(self.gui_convert.gridlist, row, self.gui_convert.column_name, conTable)
     end
 end
 
@@ -329,10 +331,51 @@ function CClientGUI:serverSyncConverting(tConvertTable)
     local count = guiGridListGetRowCount(self.gui_convert.gridlist)
     for row = 0, count do
         local data = guiGridListGetItemData(self.gui_convert.gridlist, row, self.gui_convert.column_name)
-        if data == tConvertTable.ResourceName then
+        if data and data.ResourceName == tConvertTable.ResourceName then
             guiGridListSetItemText(self.gui_convert.gridlist, row, self.gui_convert.column_state, tConvertTable.state, false, false)
             guiGridListSetItemText(self.gui_convert.gridlist, row, self.gui_convert.column_current, tConvertTable.log[#tConvertTable.log] , false, false)
+            guiGridListSetItemData(self.gui_convert.gridlist, row, self.gui_convert.column_name, tConvertTable)
             return
         end
     end
+end
+
+--Log Window
+
+function CClientGUI:createLogWindow()
+    if self.gui_log and self.gui_log.window then
+        self:updateLog()
+        return
+    end
+
+    self.gui_log = {}
+    self.gui_log.window = guiCreateWindow(.7, .6, .3, .4, "Log", true)
+
+    self.gui_log.button = guiCreateButton(.008, .06, .1, .05, "Close", true, self.gui_log.window)
+    self.gui_log.gridlist = guiCreateGridList(.008, .13, .985, .98, true, self.gui_log.window)
+    self.gui_log.column = guiGridListAddColumn(self.gui_log.gridlist, "Log", .9)
+
+    self:updateLog()
+    self:attach(self.gui_log.button, bind(CClientGUI.closeLogWindow, self))
+end
+
+function CClientGUI:updateLog()
+    local selRow = guiGridListGetSelectedItem(self.gui_convert.gridlist)
+    local data = guiGridListGetItemData(self.gui_convert.gridlist, selRow, self.gui_convert.column_name)
+
+    guiSetText(self.gui_log.window, ("Log '%s'"):format(data.ResourceName))
+    guiGridListClear(self.gui_log.gridlist)
+    for _, logEntry in ipairs(data.log) do
+        if logEntry ~= "" then
+            local row = guiGridListAddRow(self.gui_log.gridlist)
+            guiGridListSetItemText(self.gui_log.gridlist, row, self.gui_log.column, logEntry, false, false)
+        end
+    end
+
+    guiBringToFront(self.gui_log.window)
+end
+
+function CClientGUI:closeLogWindow()
+    if self.gui_log and self.gui_log.window then destroyElement(self.gui_log.window) end
+    self.gui_log = nil
 end

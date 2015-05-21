@@ -66,8 +66,6 @@ function CMapConverter:initialiseMap()
         return false
     end
 
-    --Set initialised to true, if the map was successfully initialised (available to extract meta)
-    --self:setState("Initialised", "Successfully initialised!")
     self:setState("Initialised")
     self.initialised = true
 end
@@ -88,6 +86,7 @@ end
 
 function CMapConverter:startConvert()
     if self.initialised then
+        self.startTick = getTickCount()
         self:setState("Converting")
 
         if self.Converted then
@@ -104,7 +103,7 @@ function CMapConverter:startConvert()
         self:setState(false, "Start converting")
         if not self:convertMap() then return end
 
-        self:setState("Success" , "")
+        self:setState("Success" , ("[%sms]"):format(math.floor(getTickCount()-self.startTick)))
     end
 end
 
@@ -154,32 +153,29 @@ end
 function CMapConverter:validateFiles()
     for _, file in ipairs(self.meta.file) do
        if not fileExists((":%s/%s"):format(self.ResourceName, file.src)) then
-           --self:setState(("Error: Can't find file %s"):format(file.src))
            self:setState("Converting Failed", ("Can't find file %s"):format(file.src))
            return false
        end
     end
-    self:setState(false, "files: Ok")
+    self:setState(false, ("Validating of %s map additional file%s: OK"):format(#self.meta.file, (#self.meta.file == 0 or #self.meta.file > 1) and "s" or ""))
 
     for _, script in ipairs(self.meta.script) do
         if script.src ~= "iSecurity.lua" then
             if not fileExists((":%s/%s"):format(self.ResourceName, script.src)) then
-                --self:setState(("Error: Can't find script %s"):format(script.src))
                 self:setState("Converting Failed", ("Can't find script %s"):format(script.src))
                 return false
             end
         end
     end
-    self:setState(false, "scripts: Ok")
+    self:setState(false, ("Validating of %s map script%s: OK"):format(#self.meta.script, (#self.meta.script == 0 or #self.meta.script > 1) and "s" or ""))
 
     for _, map in ipairs(self.meta.map) do
         if not fileExists((":%s/%s"):format(self.ResourceName, map.src)) then
-            --self:setState(("Error: Can't find map %s"):format(map.src))
             self:setState("Converting Failed", ("Can't find map %s"):format(map.src))
             return false
         end
     end
-    self:setState(false, "maps: Ok")
+    self:setState(false, ("Validating of %s map%s: OK"):format(#self.meta.map, (#self.meta.map == 0 or #self.meta.map > 1) and "s" or ""))
 
     return true
 end
@@ -201,7 +197,6 @@ function CMapConverter:convertMap()
     for i, file in ipairs(self.meta.file) do
        if utils.isSoundFile(file.src) then
            table.insert(self.soundFiles, {ID = i, src = file.src})
-           --table.remove(self.meta.file, i) --Delete from meta table in next step
        else
            local _file = File((":%s/%s"):format(self.ResourceName, file.src))
            if _file then
@@ -211,11 +206,12 @@ function CMapConverter:convertMap()
        end
     end
 
-    self:setState(false, ("Found %s sound file%s"):format(#self.soundFiles, (#self.soundFiles > 1) and "s" or ""))
+    self:setState(false, ("Found %s sound file%s"):format(#self.soundFiles, (#self.soundFiles == 0 or #self.soundFiles > 1) and "s" or ""))
 
     --Copy sound files to destination directory
     for i, file in ipairs(self.soundFiles) do
         file.newName = ("%s-(MusicID+%s).%s"):format(utils.convert(self.mapName), i, utils.getFileExtansion(file.src))
+        self:setState(false, ("Copy and rename '%s' to '%s'"):format(file.src, file.newName))
         if not File.copy((":%s/%s"):format(self.ResourceName, file.src), (":MTAMapConverter/mapmusic/%s/%s"):format(self.mapType, file.newName), true) then
             self:setState("Converting Failed", ("Error while copying file '%s'"):format(file.src))
             return false
@@ -230,22 +226,23 @@ function CMapConverter:convertMap()
             if file then
                script.content = file:read(file:getSize())
                for _, sFile in ipairs(self.soundFiles) do
-                   script.content = script.content:gsub(sFile.src, ("http://irace-mta.de/servermusic/mapmusic/%s/%s"):format(self.mapType, sFile.newName))
+                   script.content = script.content:gsub(sFile.src, ("http://pewx.de/res/mapmwusic/%s/%s"):format(self.mapType, sFile.newName))
                end
                file:close()
-                --File.delete((":%s/%s"):format(self.ResourceName, script.src)) --Will deleted with the source resource
             end
         end
     end
 
     --create new resource
-    self:setState(false, "Creating new resource")
+    self:setState(false, "Create new resource")
     self.count = 0
     while Resource.getFromName(self.newResourceName) do
-       self.newResourceName = ("%s-%s"):format(self.newResourceName, self.count)
+        self.newResourceName = ("%s-%s"):format(self.newResourceName, self.count)
+        self:setState(false, ("Resource already exists, continue if '%s' is available"):format(self.newResourceName))
         self.count = self.count + 1
     end
     self.newResource = Resource(self.newResourceName, "[Converted]")
+    self:setState(false, ("Resource '%s' successfully created"):format(self.newResourceName))
 
     --Create/Override new meta
     self:setState(false, "Create meta.xml for new resource")
@@ -335,7 +332,7 @@ function CMapConverter:convertMap()
 
     --Delete old resource, if desired
     if self.deleteOldResource then
-        self:setState(false, "Delete old resource")
+        self:setState(false, ("Delete old resource '%s'"):format(self.ResourceName))
         self.mapResource:delete()
     end
     return true
