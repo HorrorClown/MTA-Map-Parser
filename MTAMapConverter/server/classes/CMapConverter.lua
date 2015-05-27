@@ -188,6 +188,9 @@ function CMapConverter:convertMap()
         if file then
             map.content = file:read(file:getSize())
             file:close()
+        else
+            self:setState("Converting Failed", ("Unable to load map file %s"):format(map.src))
+            return false
         end
     end
 
@@ -202,6 +205,9 @@ function CMapConverter:convertMap()
            if _file then
                file.content = _file:read(_file:getSize())
                _file:close()
+           else
+               self:setState("Converting Failed", ("Unable to load file %s"):format(file.src))
+               return false
            end
        end
     end
@@ -229,6 +235,9 @@ function CMapConverter:convertMap()
                    script.content = script.content:gsub(sFile.src, ("http://pewx.de/res/irace/mapmusic/%s/%s"):format(self.mapType, sFile.newName))
                end
                file:close()
+            else
+                self:setState("Converting Failed", ("Unable to load script file %s"):format(script.src))
+                return false
             end
         end
     end
