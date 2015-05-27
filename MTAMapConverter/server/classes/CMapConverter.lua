@@ -14,7 +14,7 @@ function CMapConverter:constructor(sResourceName, client)
     self.log = {""}
     self.state = nil
 
-    self.deleteOldResource = true
+    --self.deleteOldResource = true
     self.initialised = false
     self:initialiseMap()
 end
@@ -132,9 +132,6 @@ function CMapConverter:extractMeta()
         settings = {}
     }
 
-    --Add the security file at first to meta.xml!
-    self:addSecurityFile()
-
     for _, mNode in ipairs(meta:getChildren()) do
         if mNode:getName() == "settings" then
             for _, sNode in ipairs(mNode:getChildren()) do
@@ -160,11 +157,9 @@ function CMapConverter:validateFiles()
     self:setState(false, ("Validating of %s map additional file%s: OK"):format(#self.meta.file, (#self.meta.file == 0 or #self.meta.file > 1) and "s" or ""))
 
     for _, script in ipairs(self.meta.script) do
-        if script.src ~= "iSecurity.lua" then
-            if not fileExists((":%s/%s"):format(self.ResourceName, script.src)) then
-                self:setState("Converting Failed", ("Can't find script %s"):format(script.src))
-                return false
-            end
+        if not fileExists((":%s/%s"):format(self.ResourceName, script.src)) then
+            self:setState("Converting Failed", ("Can't find script %s"):format(script.src))
+            return false
         end
     end
     self:setState(false, ("Validating of %s map script%s: OK"):format(#self.meta.script, (#self.meta.script == 0 or #self.meta.script > 1) and "s" or ""))
@@ -217,6 +212,7 @@ function CMapConverter:convertMap()
     --Copy sound files to destination directory
     for i, file in ipairs(self.soundFiles) do
         file.newName = ("%s-(MusicID+%s).%s"):format(utils.convert(self.mapName), i, utils.getFileExtansion(file.src))
+        file.streamURL =  ("http://pewx.de/res/irace/mapmusic/%s/%s"):format(self.mapType, file.newName)
         self:setState(false, ("Copy and rename '%s' to '%s'"):format(file.src, file.newName))
         if not File.copy((":%s/%s"):format(self.ResourceName, file.src), (":MTAMapConverter/mapmusic/%s/%s"):format(self.mapType, file.newName), true) then
             self:setState("Converting Failed", ("Error while copying file '%s'"):format(file.src))
@@ -224,21 +220,20 @@ function CMapConverter:convertMap()
         end
     end
 
-    --get script content and if necessary, replace sound paths
-    self:setState(false, "Loading script content and if necessary, replace sound paths")
+    --get script content
+    self:setState(false, "Loading script content")
     for _, script in ipairs(self.meta.script) do
-       if script.src ~= "iSecurity.lua" then
-            local file = File((":%s/%s"):format(self.ResourceName, script.src))
-            if file then
-               script.content = file:read(file:getSize())
-               for _, sFile in ipairs(self.soundFiles) do
-                   script.content = script.content:gsub(sFile.src, ("http://pewx.de/res/irace/mapmusic/%s/%s"):format(self.mapType, sFile.newName))
-               end
-               file:close()
-            else
-                self:setState("Converting Failed", ("Unable to load script file %s"):format(script.src))
-                return false
-            end
+        local file = File((":%s/%s"):format(self.ResourceName, script.src))
+        if file then
+           script.content = file:read(file:getSize())
+           --playSound function will override in pew.lua script. So it is fully compatible with compiled scripts
+           --[[for _, sFile in ipairs(self.soundFiles) do
+               --script.content = script.content:gsub(sFile.src, ("http://pewx.de/res/irace/mapmusic/%s/%s"):format(self.mapType, sFile.newName))
+           end]]
+           file:close()
+        else
+            self:setState("Converting Failed", ("Unable to load script file %s"):format(script.src))
+            return false
         end
     end
 
@@ -264,6 +259,11 @@ function CMapConverter:convertMap()
         infoChild:setAttribute("name", self.mapName)
         infoChild:setAttribute("author", self.mapAuthor)
         infoChild:setAttribute("pewConverted", "true")
+
+        --Create pew script at first
+        local pewNode = newRMeta:createChild("script")
+        pewNode:setAttribute("src", "pew.lua")
+        pewNode:setAttribute("type", "shared")
 
         for k, v in pairs(self.meta) do
             if k == "script" then
@@ -317,14 +317,23 @@ function CMapConverter:convertMap()
     self:setState(false, "Create files for new resource")
     for _, file in ipairs(self.meta.file) do
         if not utils.isSoundFile(file.src) then
-      -- if file.content then
-            local _file = File.new((":%s/%s"):format(self.newResourceName, file.src))
-            if _file then
-                _file:write(file.content)
-                _file:close()
+            if file.content then
+                local _file = File.new((":%s/%s"):format(self.newResourceName, file.src))
+                if _file then
+                    _file:write(file.content)
+                    _file:close()
+                end
             end
-       -- end
         end
+    end
+
+    --Create pew script, that override the playSound function to replace stream URL's and some other stuff
+    self:setState(false, "Generate pew script for sound replacement")
+    self:generatePewScript()
+    local file = File.new((":%s/pew.lua"):format(self.newResourceName))
+    if file then
+        file:write(self.pewScript)
+        file:close()
     end
 
     --Create map file
@@ -359,9 +368,9 @@ function CMapConverter:setState(sState, sLogInput)
     Core:getManager("CMCManager"):sync(self)
 end
 
-function CMapConverter:addSecurityFile()
-    self.securityFile = [[--
--- iRace: Automatic created security file
+function CMapConverter:generatePewScript()
+    self.pewScript = ([[--
+-- This file was automatically generated by PewX' Map Parser Resource: https://github.com/HorrorClown/PewX-Map-Parser
 -- HorrorClown (PewX)
 -- Using: IntelliJ IDEA 14 Ultimate
 -- Date: 10.05.2015 - Time: 06:27
@@ -370,14 +379,54 @@ function CMapConverter:addSecurityFile()
 SERVER = triggerServerEvent == nil
 CLIENT = not SERVER
 
---Override functions
+--Override playSound and playSound3D functions
+if CLIENT then
+    local streamTable = fromJSON('%s')
+    local _setElementData = setElementData
+    local _playSound = playSound
+    local _playSound3D = playSound3D
+
+    function playSound(sSoundPath, bLooped, bThrottled)
+        if streamTable then
+            for _, stream in ipairs(streamTable) do
+                if stream.src == sSoundPath then
+                    local sound = _playSound(stream.streamURL, bLooped, bThrottled)
+                    if sound then _setElementData(sound, "mapmusic", true) end
+                    return sound
+                end
+            end
+        end
+        return _playSound(sSoundPath, bLooped, bThrottled)
+    end
+
+    function playSound3D(sSoundPath, x, y, z, bLooped, bThrottled)
+        if streamTable then
+            for _, stream in ipairs(streamTable) do
+                if stream.src == sSoundPath then
+                    local sound = _playSound3D(stream.streamURL, x, y, z, bLooped, bThrottled)
+                    if sound then _setElementData(sound, "mapmusic", true) end
+                    return sound
+                end
+            end
+        end
+        return _playSound3D(sSoundPath, x, y, z, bLooped, bThrottled)
+    end
+end
+
+--Override some other functions
 if SERVER then
     function setAccountData() return false end
     function getAccountData() return false end
+else
+    function dxDrawText() return false end
+    function guiCreateWindow() return false end
+    function guiCreateLabel() return false end
 end
+
 function setElementData() return false end
 --function getElementData() return false end
 function outputChatBox() return false end
+function addCommandHandler() return false end
 
 --Disable 'm' bind
 _bindKey = bindKey
@@ -395,6 +444,5 @@ else
         end
         return false
     end
-end]]
-    table.insert(self.meta.script, {src = "iSecurity.lua", content = self.securityFile, type = "shared"})
+end]]):format(toJSON(self.soundFiles))
 end
