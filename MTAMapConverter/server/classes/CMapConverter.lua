@@ -226,7 +226,7 @@ function CMapConverter:convertMap()
             if file then
                script.content = file:read(file:getSize())
                for _, sFile in ipairs(self.soundFiles) do
-                   script.content = script.content:gsub(sFile.src, ("http://pewx.de/res/mapmwusic/%s/%s"):format(self.mapType, sFile.newName))
+                   script.content = script.content:gsub(sFile.src, ("http://pewx.de/res/irace/mapmusic/%s/%s"):format(self.mapType, sFile.newName))
                end
                file:close()
             end
