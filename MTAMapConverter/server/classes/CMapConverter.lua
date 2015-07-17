@@ -226,10 +226,6 @@ function CMapConverter:convertMap()
         local file = File((":%s/%s"):format(self.ResourceName, script.src))
         if file then
            script.content = file:read(file:getSize())
-           --playSound function will override in pew.lua script. So it is fully compatible with compiled scripts
-           --[[for _, sFile in ipairs(self.soundFiles) do
-               --script.content = script.content:gsub(sFile.src, ("http://pewx.de/res/irace/mapmusic/%s/%s"):format(self.mapType, sFile.newName))
-           end]]
            file:close()
         else
             self:setState("Converting Failed", ("Unable to load script file %s"):format(script.src))
@@ -239,12 +235,16 @@ function CMapConverter:convertMap()
 
     --create new resource
     self:setState(false, "Create new resource")
-    self.count = 0
+    if Resource.getFromName(self.newResourceName) then
+        self:setState("Converting Failed", "Resource for new generated resource name is already exists")
+        return false
+    end
+    --[[self.count = 0
     while Resource.getFromName(self.newResourceName) do
         self.newResourceName = ("%s-%s"):format(self.newResourceName, self.count)
         self:setState(false, ("Resource already exists, continue if '%s' is available"):format(self.newResourceName))
         self.count = self.count + 1
-    end
+    end]]
     self.newResource = Resource(self.newResourceName, "[Converted]")
     self:setState(false, ("Resource '%s' successfully created"):format(self.newResourceName))
 
