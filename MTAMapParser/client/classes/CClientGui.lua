@@ -180,7 +180,8 @@ end
 function CClientGUI:startConverting()
     guiSetProperty(self.gui_convert.btn_back, "Disabled", "true")
     guiSetProperty(self.gui_convert.btn_start, "Disabled", "true")
-    triggerServerEvent("onClientStartConvert", resourceRoot)
+    local deleteResources = guiCheckBoxGetSelected(self.gui_main.deleteOldResource)
+    triggerServerEvent("onClientStartConvert", resourceRoot, deleteResources)
 end
 
 function CClientGUI:serverConvertingDone()
@@ -213,13 +214,13 @@ end
 
 function CClientGUI:createMainGUI()
     self.gui_main = {}
-    self.gui_main.window = guiCreateWindow(0, 0, x, y, "PewX' Map Converter", false)
+    self.gui_main.window = guiCreateWindow(0, 0, x, y, "PewX' Map Parser", false)
 
     guiCreateLabel(.008, .03, 1, 1, "Available Map Resources", true, self.gui_main.window)
     self.gui_main.mapGridlist = guiCreateGridList(.008, .05, .3, .865, true, self.gui_main.window)
     guiGridListSetSelectionMode(self.gui_main.mapGridlist, 1)
     self.gui_main.mapColumn = guiGridListAddColumn(self.gui_main.mapGridlist, "Map", .8)
-    self.gui_main.mapIsConColumn = guiGridListAddColumn(self.gui_main.mapGridlist, "Converted", .2)
+    self.gui_main.mapIsConColumn = guiGridListAddColumn(self.gui_main.mapGridlist, "Parsed", .2)
 
     self.gui_main.addButton = guiCreateButton(.31, .05, .02, .9, ">", true, self.gui_main.window)
     self.gui_main.remButton = guiCreateButton(.34, .05, .02, .9, "<", true, self.gui_main.window)
@@ -229,7 +230,7 @@ function CClientGUI:createMainGUI()
     self.gui_main.convertColumn = guiGridListAddColumn(self.gui_main.convertGridlist, "Map", .8)
     self.gui_main.initColumn = guiGridListAddColumn(self.gui_main.convertGridlist, "Initialised", .2)
 
-    guiCreateLabel(.363, .03, 1, .025, "Converting list", true, self.gui_main.window)
+    guiCreateLabel(.363, .03, 1, .025, "Parsing list", true, self.gui_main.window)
     guiCreateLabel(.68, .03, 1, .025, "Selected Map Settings", true, self.gui_main.window)
 
     guiCreateLabel(.69, .06, 1, 1, "Resource Name:", true, self.gui_main.window)
@@ -245,7 +246,8 @@ function CClientGUI:createMainGUI()
     self.gui_main.lbl_MapType = guiCreateLabel(.78, .105, 1, 1, "", true, self.gui_main.window)
     self.gui_main.lbl_NewResourceName = guiCreateLabel(.78, .125, 1, 1, "", true, self.gui_main.window)
 
-    self.gui_main.deleteOldResource = guiCreateCheckBox(.69, .145, .3, .025, "Delete old resource if the map was successfully converted", true, true, self.gui_main.window)
+    --self.gui_main.deleteOldResource = guiCreateCheckBox(.69, .145, .3, .025, "Delete old resource if the map was successfully parsed", true, true, self.gui_main.window)
+    self.gui_main.deleteOldResource = guiCreateCheckBox(.667, .89, .3, .025, "Delete old resources if the map was successfully parsed", false, true, self.gui_main.window)
     self.gui_main.useCustomSettings = guiCreateCheckBox(.69, .166, .3, .025, "Edit Settings", false, true, self.gui_main.window)
 
     --Custom settings guis
@@ -262,11 +264,11 @@ function CClientGUI:createMainGUI()
     for _, eGUI in pairs(self.gui_main.custom) do guiSetVisible(eGUI, false) end
     --End custom settings
 
-    self.gui_main.showConvertWindow = guiCreateButton(.667, .92, .38, .03, "Show convert window", true, self.gui_main.window)
+    self.gui_main.showConvertWindow = guiCreateButton(.667, .92, .38, .03, "Show parsing window", true, self.gui_main.window)
 
     self.gui_main.refreshButton = guiCreateButton(.008, .92, .3, .03, "Refresh", true, self.gui_main.window)
     self.gui_main.showOnlyNew = guiCreateCheckBox(.008, .95, .1, .025, "Show only new", true, true, self.gui_main.window)
-    self.gui_main.showConvertedMaps = guiCreateCheckBox(.008, .97, .1, .025, "Show converted maps", false, true, self.gui_main.window)
+    self.gui_main.showConvertedMaps = guiCreateCheckBox(.008, .97, .1, .025, "Show parsed maps", false, true, self.gui_main.window)
     self.gui_main.refreshAll = guiCreateCheckBox(.15, .95, .1, .025, "Refresh all", false, true, self.gui_main.window)
 
     self:attach(self.gui_main.refreshButton, bind(CClientGUI.refreshMaps, self))
@@ -298,11 +300,11 @@ end
 
 function CClientGUI:createConvertGUI()
     self.gui_convert = {}
-    self.gui_convert.window = guiCreateWindow(0, 0, x, y, "PewX' Map Converter", false)
+    self.gui_convert.window = guiCreateWindow(0, 0, x, y, "PewX' Map Parser", false)
     guiSetVisible(self.gui_convert.window, false)
 
     self.gui_convert.btn_back = guiCreateButton(.008, .03, .1, .022, "Back", true, self.gui_convert.window)
-    self.gui_convert.btn_start = guiCreateButton(.892, .03, .1, .022, "Convert", true, self.gui_convert.window)
+    self.gui_convert.btn_start = guiCreateButton(.892, .03, .1, .022, "Start parsing", true, self.gui_convert.window)
 
     self.gui_convert.gridlist = guiCreateGridList(.008, .06, .985, .98, true, self.gui_convert.window)
     self.gui_convert.column_name = guiGridListAddColumn(self.gui_convert.gridlist, "Map Name", .3)

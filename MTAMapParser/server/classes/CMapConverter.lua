@@ -4,9 +4,13 @@
 -- Date: 10.05.2015 - Time: 06:27
 -- pewx.de // iGaming-mta.de // iRace-mta.de // iSurvival.de // mtasa.de
 --
-CMapConverter = {}
+CMapParser = {}
 
-function CMapConverter:constructor(sResourceName, client)
+function CMapParser:constructor(sResourceName, client)
+    self.parserVersion = 1  --[[
+    ToDo: Check this with map meta info if the map is already converted. If the parserVersion in the map lower than this version, the map may require an upgrade
+    If an upgrade required, the map does not need to get completely parsed. Special functions to upgrade for specific versions still needed. Too lazy to do that now :O
+]]
     self.ResourceName = sResourceName
     self.ConvertedBy = client
 
@@ -19,13 +23,13 @@ function CMapConverter:constructor(sResourceName, client)
     self:initialiseMap()
 end
 
-function CMapConverter:destructor()
+function CMapParser:destructor()
     for _, v in pairs(self) do
         v = nil
     end
 end
 
-function CMapConverter:initialiseMap()
+function CMapParser:initialiseMap()
     self:setState("Initalising")
 
     self.mapResource = Resource.getFromName(self.ResourceName)
@@ -45,7 +49,9 @@ function CMapConverter:initialiseMap()
         return false
     end
 
-    self.Converted = self.mapResource:getInfo("pewConverted")
+    self.Converted = self.mapResource:getInfo("pewParsed")
+    self.parserdVersion = self.mapResource:getInfo("parsedVersion")
+
     self.mapName = self.mapResource:getInfo("name")
     self.mapType = self:getMapType()
     self.mapAuthor = self.mapResource:getInfo("author")
@@ -70,7 +76,7 @@ function CMapConverter:initialiseMap()
     self.initialised = true
 end
 
-function CMapConverter:getNewResourceName()
+function CMapParser:getNewResourceName()
     if not self.mapType then return "Error" end
     if not self.mapName then return "Error" end
 
@@ -84,13 +90,13 @@ function CMapConverter:getNewResourceName()
     return ("%s_%s"):format(self.mapType:upper(), split:lower())
 end
 
-function CMapConverter:startConvert()
+function CMapParser:startParsing()
     if self.initialised then
         self.startTick = getTickCount()
-        self:setState("Converting")
+        self:setState("Parsing")
 
         if self.Converted then
-            self:setState("Converting Failed", "Map is already converted")
+            self:setState("Failed to parse", "Map is already parsed")
             return
         end
 
@@ -100,14 +106,14 @@ function CMapConverter:startConvert()
         self:setState(false, "Validating files")
         if not self:validateFiles() then return end
 
-        self:setState(false, "Start converting")
-        if not self:convertMap() then return end
+        self:setState(false, "Start parsing")
+        if not self:parseMap() then return end
 
         self:setState("Success" , ("[%sms]"):format(math.floor(getTickCount()-self.startTick)))
     end
 end
 
-function CMapConverter:getMapType()
+function CMapParser:getMapType()
     if not self.mapName then return false end
 
     for _, mapType in ipairs(self.mapTypes) do
@@ -118,10 +124,10 @@ function CMapConverter:getMapType()
     return false
 end
 
-function CMapConverter:extractMeta()
+function CMapParser:extractMeta()
     local meta = XML.load((":%s/meta.xml"):format(self.ResourceName))
     if not meta then
-        self:setState("Converting Failed", "Can't load meta.xml")
+        self:setState("Failed to parse", "Can't load meta.xml")
         return false
     end
 
@@ -147,10 +153,10 @@ function CMapConverter:extractMeta()
     return true
 end
 
-function CMapConverter:validateFiles()
+function CMapParser:validateFiles()
     for _, file in ipairs(self.meta.file) do
        if not fileExists((":%s/%s"):format(self.ResourceName, file.src)) then
-           self:setState("Converting Failed", ("Can't find file %s"):format(file.src))
+           self:setState("Failed to parse", ("Can't find file %s"):format(file.src))
            return false
        end
     end
@@ -158,7 +164,7 @@ function CMapConverter:validateFiles()
 
     for _, script in ipairs(self.meta.script) do
         if not fileExists((":%s/%s"):format(self.ResourceName, script.src)) then
-            self:setState("Converting Failed", ("Can't find script %s"):format(script.src))
+            self:setState("Failed to parse", ("Can't find script %s"):format(script.src))
             return false
         end
     end
@@ -166,7 +172,7 @@ function CMapConverter:validateFiles()
 
     for _, map in ipairs(self.meta.map) do
         if not fileExists((":%s/%s"):format(self.ResourceName, map.src)) then
-            self:setState("Converting Failed", ("Can't find map %s"):format(map.src))
+            self:setState("Failed to parse", ("Can't find map %s"):format(map.src))
             return false
         end
     end
@@ -175,7 +181,7 @@ function CMapConverter:validateFiles()
     return true
 end
 
-function CMapConverter:convertMap()
+function CMapParser:parseMap()
     --at first get map content
     self:setState(false, "Loading map content")
     for _, map in ipairs(self.meta.map) do
@@ -184,7 +190,7 @@ function CMapConverter:convertMap()
             map.content = file:read(file:getSize())
             file:close()
         else
-            self:setState("Converting Failed", ("Unable to load map file %s"):format(map.src))
+            self:setState("Failed to parse", ("Unable to load map file %s"):format(map.src))
             return false
         end
     end
@@ -201,7 +207,7 @@ function CMapConverter:convertMap()
                file.content = _file:read(_file:getSize())
                _file:close()
            else
-               self:setState("Converting Failed", ("Unable to load file %s"):format(file.src))
+               self:setState("Failed to parse", ("Unable to load file %s"):format(file.src))
                return false
            end
        end
@@ -214,8 +220,8 @@ function CMapConverter:convertMap()
         file.newName = ("%s-(MusicID+%s).%s"):format(utils.convert(self.mapName), i, utils.getFileExtansion(file.src))
         file.streamURL =  ("http://pewx.de/res/irace/mapmusic/%s/%s"):format(self.mapType, file.newName)
         self:setState(false, ("Copy and rename '%s' to '%s'"):format(file.src, file.newName))
-        if not File.copy((":%s/%s"):format(self.ResourceName, file.src), (":MTAMapConverter/mapmusic/%s/%s"):format(self.mapType, file.newName), true) then
-            self:setState("Converting Failed", ("Error while copying file '%s'"):format(file.src))
+        if not File.copy((":%s/%s"):format(self.ResourceName, file.src), (":MTAMapParser/mapmusic/%s/%s"):format(self.mapType, file.newName), true) then
+            self:setState("Failed to parse", ("Error while copying file '%s'"):format(file.src))
             return false
         end
     end
@@ -228,7 +234,7 @@ function CMapConverter:convertMap()
            script.content = file:read(file:getSize())
            file:close()
         else
-            self:setState("Converting Failed", ("Unable to load script file %s"):format(script.src))
+            self:setState("Failed to parse", ("Unable to load script file %s"):format(script.src))
             return false
         end
     end
@@ -236,7 +242,7 @@ function CMapConverter:convertMap()
     --create new resource
     self:setState(false, "Create new resource")
     if Resource.getFromName(self.newResourceName) then
-        self:setState("Converting Failed", "Resource for new generated resource name is already exists")
+        self:setState("Failed to parse", "Resource for new generated resource name is already exists")
         return false
     end
     --[[self.count = 0
@@ -245,7 +251,7 @@ function CMapConverter:convertMap()
         self:setState(false, ("Resource already exists, continue if '%s' is available"):format(self.newResourceName))
         self.count = self.count + 1
     end]]
-    self.newResource = Resource(self.newResourceName, "[Converted]")
+    self.newResource = Resource(self.newResourceName, "[Parsed]")
     self:setState(false, ("Resource '%s' successfully created"):format(self.newResourceName))
 
     --Create/Override new meta
@@ -258,7 +264,8 @@ function CMapConverter:convertMap()
         infoChild:setAttribute("type", "map")
         infoChild:setAttribute("name", self.mapName)
         infoChild:setAttribute("author", self.mapAuthor)
-        infoChild:setAttribute("pewConverted", "true")
+        infoChild:setAttribute("pewParsed", "true")
+        infoChild:setAttribute("parsedVersion", self.parserVersion)
 
         --Create pew script at first
         local pewNode = newRMeta:createChild("script")
@@ -356,7 +363,7 @@ function CMapConverter:convertMap()
     return true
 end
 
-function CMapConverter:setState(sState, sLogInput)
+function CMapParser:setState(sState, sLogInput)
     if sState then
         self.state = sState
     end
@@ -368,7 +375,7 @@ function CMapConverter:setState(sState, sLogInput)
     Core:getManager("CMCManager"):sync(self)
 end
 
-function CMapConverter:generatePewScript()
+function CMapParser:generatePewScript()
     self.pewScript = ([[--
 -- This file was automatically generated by PewX' Map Parser Resource: https://github.com/HorrorClown/PewX-Map-Parser
 -- HorrorClown (PewX)

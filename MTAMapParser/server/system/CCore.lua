@@ -30,7 +30,7 @@ function CCore:loadManagers()
 end
 
 function CCore:initFileSystem()
-    --ToDo: Check if a NTFS Hard link set for mapmusic (:MTAMapConverter/mapmusic/)
+    --ToDo: Check if a NTFS Hard link set for mapmusic (:MTAMapParser/mapmusic/) - currently MTA does not support these function
 end
 
 function CCore:getManager(sName)

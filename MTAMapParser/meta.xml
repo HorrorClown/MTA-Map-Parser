@@ -1,5 +1,5 @@
 <meta>
-        <info name = "MTA Map Converter" author = "PewX" type = "script" version = "1.0" />
+        <info name = "MTA Map Parser" author = "PewX" type = "misc" version = "1.0" />
         <oop>true</oop>
 
         <!--Shared-->
@@ -15,6 +15,10 @@
         <!--Client-->
         <script src = "client/classes/CClientGui.lua" type = "client" />
         <script src = "client/system/Core.lua" type = "client" />
+
+    <aclrequest>
+        <right name="general.ModifyOtherObjects" access="true" />
+    </aclrequest>
 </meta>
 
 <!--

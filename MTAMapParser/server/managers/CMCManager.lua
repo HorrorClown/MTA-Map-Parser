@@ -26,7 +26,7 @@ function CMCManager:clientAddMap(sMapResourceName)
     if not self[client] then self[client] = {} end
 
     if not self:isAlreadyAdded(sMapResourceName) then
-        table.insert(self[client], new(CMapConverter, sMapResourceName, client))
+        table.insert(self[client], new(CMapParser, sMapResourceName, client))
         triggerClientEvent(client, "onServerAddedMap", client, self[client][#self[client]])
     end
 end
@@ -53,19 +53,20 @@ function CMCManager:isAlreadyAdded(sMapResourceName)
     return false
 end
 
-function CMCManager:clientStartConvert()
+function CMCManager:clientStartConvert(bDeleteResources)
     if not self[client] then triggerClientEvent(client, "onServerConvertingDone", client) return end
 
     --At first update states
     for i, conInstance in ipairs(self[client]) do
         if conInstance.initialised then
+            conInstance.deleteOldResource = bDeleteResources
             conInstance:setState("Queued")
         end
     end
 
     --Start converting now
     for i, conInstance in ipairs(self[client]) do
-        conInstance:startConvert()
+        conInstance:startParsing()
         delete(conInstance)
     end
 
@@ -78,9 +79,11 @@ function CMCManager:clientApplySettings(tMapSettings)
     for _, conInstance in ipairs(self[client]) do
        if conInstance.ResourceName == tMapSettings.ResourceName then
             conInstance.useCustom = true
-            conInstance.customMapName = tMapSettings.customMapName
-            conInstance.customMapAuthor = tMapSettings.customMapAuthor
-            conInstance.customMapType = tMapSettings.customMapType
+            conInstance.mapName = tMapSettings.customMapName
+            conInstance.mapAuthor = tMapSettings.customMapAuthor
+            conInstance.mapType = tMapSettings.customMapType
+            conInstance.newResourceName = conInstance:getNewResourceName()
+            return
        end
     end
 end
@@ -89,17 +92,3 @@ function CMCManager:sync(CInstance)
     local toSync = {ResourceName = CInstance.ResourceName, state = CInstance.state, log = CInstance.log }
     triggerClientEvent(CInstance.ConvertedBy, "onServerSyncConverting", CInstance.ConvertedBy, toSync)
 end
-
---[[function CMCManager:initialiseMap(_, _, sMapResource)
-    self:setState("Extract meta.xml")
-    if not self:extractMeta() then return end
-
-    self:setState("Validating files")
-    if not self:validateFiles() then return end
-
-    self:setState("Convert map")
-    if not self:convertMap() then return end
-
-    self:setState("Map successfully converted")
-    refreshResources()
-end]]
