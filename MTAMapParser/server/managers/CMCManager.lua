@@ -7,6 +7,13 @@
 CMCManager = {}
 
 function CMCManager:constructor()
+    self.validSettings = {
+        ["DM"] = {["#ghostmode"] = '[ "true" ]', ["#vehicleweapons"] = '[ "true" ]', ["#respawn"] = '[ "none" ]'},
+        ["DD"] = {["#ghostmode"] = '[ "false" ]', ["#vehicleweapons"] = '[ "true" ]', ["#respawn"] = '[ "none" ]'},
+        ["Hunter"] = {["#ghostmode"] = '[ "false" ]', ["#vehicleweapons"] = '[ "true" ]', ["#respawn"] = '[ "none" ]'},
+        ["Shooter"] = {["#ghostmode"] = '[ "false" ]', ["#vehicleweapons"] = '[ "true" ]', ["#respawn"] = '[ "none" ]'},
+    }
+
     addEvent("onClientAddMap", true)
     addEvent("onClientRemoveMap", true)
     addEvent("onClientStartConvert", true)
